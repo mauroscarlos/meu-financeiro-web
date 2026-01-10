@@ -1,7 +1,20 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
-from datetime import datetime
+from sqlalchemy import create_engine
+
+# Conectar ao banco usando os Secrets que você configurou
+def get_connection():
+    url = st.secrets["connections"]["postgresql"]["url"]
+    return create_engine(url)
+
+engine = get_connection()
+
+# Exemplo de como salvar dados (no lugar do antigo sqlite3)
+def salvar_receita(tipo, data, categoria, valor):
+    df = pd.DataFrame([[tipo, data, categoria, valor]], 
+                      columns=['tipo', 'data', 'categoria', 'valor'])
+    # Salva direto na tabela do Supabase
+    df.to_sql('movimentacoes', engine, if_exists='append', index=False)
 
 # Configuração da Página
 st.set_page_config(page_title="SGF PRO Web", layout="wide")
@@ -54,4 +67,5 @@ elif aba == "Dashboard":
         
         st.bar_chart(df.groupby('categoria')['valor'].sum())
     else:
+
         st.info("Nenhum dado lançado ainda.")
