@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(page_title="SGF PRO - Gestão Profissional", layout="wide", page_icon="🛡️")
@@ -12,6 +15,39 @@ def get_engine():
     return create_engine(url, pool_pre_ping=True)
 
 engine = get_engine()
+
+# --- FUNÇÃO DE ENVIO DE EMAIL ---
+def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
+    msg_corpo = f"""
+    <html>
+        <body>
+            <h2>Olá, {nome}! 👋</h2>
+            <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
+            <p><b>Seus dados de acesso:</b></p>
+            <ul>
+                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
+                <li><b>Usuário:</b> {email_destino}</li>
+                <li><b>Senha:</b> {senha_provisoria}</li>
+            </ul>
+            <p><i>Recomendamos alterar sua senha após o primeiro login.</i></p>
+        </body>
+    </html>
+    """
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = st.secrets["email"]["usuario"]
+        msg['To'] = email_destino
+        msg['Subject'] = "🚀 Bem-vindo ao SGF PRO - Seus dados de acesso"
+        msg.attach(MIMEText(msg_corpo, 'html'))
+
+        server = smtplib.SMTP_SSL(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"])
+        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
+        server.sendmail(msg['From'], msg['To'], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
 
 # --- LÓGICA DE AUTO-CADASTRO (VIA LINK: ?modo=registro) ---
 params = st.query_params
@@ -26,7 +62,7 @@ if "modo" in params and params["modo"] == "registro":
             if st.form_submit_button("Finalizar Cadastro"):
                 with engine.begin() as conn:
                     conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, 'user', 'ativo')"),
-                                 {"n": n_nome, "e": n_email, "s": n_senha})
+                                     {"n": n_nome, "e": n_email, "s": n_senha})
                 st.success("Conta criada com sucesso!")
         if st.button("⬅️ Voltar para Login"):
             st.query_params.clear()
@@ -37,11 +73,10 @@ if "modo" in params and params["modo"] == "registro":
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
-# O placeholder deve ser criado ANTES do bloco if not logado
 placeholder = st.empty()
 
 if not st.session_state.logado:
-    with placeholder.container(): # Tudo o que está aqui será apagado depois
+    with placeholder.container():
         st.markdown("<h2 style='text-align: center;'>🛡️ Acesso ao SGF PRO</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
@@ -56,16 +91,11 @@ if not st.session_state.logado:
                         if user_df.iloc[0]['status'] == 'bloqueado':
                             st.error("❌ Sua conta está bloqueada.")
                         else:
-                            # 1. Salva os dados na sessão
                             st.session_state.logado = True
                             st.session_state.user_id = int(user_df.iloc[0]['id'])
                             st.session_state.user_nome = user_df.iloc[0]['nome']
                             st.session_state.user_nivel = user_df.iloc[0]['nivel']
-                            
-                            # 2. LIMPA O CONTEÚDO DO PLACEHOLDER (Apaga o formulário da tela)
                             placeholder.empty()
-                            
-                            # 3. Reinicia o app já com a sessão logada
                             st.rerun()
                     else:
                         st.error("Usuário ou senha incorretos.")
@@ -84,78 +114,31 @@ if st.session_state.user_nivel == 'admin':
 menu = st.sidebar.radio("Navegação", opcoes_menu)
 
 # --- ABA GESTÃO DE USUÁRIOS (EXCLUSIVA ADMIN) ---
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-# --- FUNÇÃO DE ENVIO DE EMAIL ---
-def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
-    msg_corpo = f"""
-    <html>
-        <body>
-            <h2>Olá, {nome}! 👋</h2>
-            <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
-            <p><b>Seus dados de acesso:</b></p>
-            <ul>
-                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
-                <li><b>Usuário:</b> {email_destino}</li>
-                <li><b>Senha:</b> {senha_provisoria}</li>
-            </ul>
-            <p><i>Recomendamos alterar sua senha após o primeiro login.</i></p>
-        </body>
-    </html>
-    """
+if menu == "🛡️ Gestão de Usuários":
+    st.header("👥 Gerenciamento de Membros")
     
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = st.secrets["email"]["usuario"]
-        msg['To'] = email_destino
-        msg['Subject'] = "🚀 Bem-vindo ao SGF PRO - Seus dados de acesso"
-        msg.attach(MIMEText(msg_corpo, 'html'))
+    # 1. Adicionar Manualmente com E-mail
+    with st.expander("➕ Adicionar Novo Usuário"):
+        with st.form("add_manual"):
+            m_nome = st.text_input("Nome")
+            m_email = st.text_input("Email")
+            m_senha = st.text_input("Senha")
+            m_nivel = st.selectbox("Nível", ["user", "admin"])
+            if st.form_submit_button("Cadastrar e Notificar"):
+                if m_nome and m_email and m_senha:
+                    with engine.begin() as conn:
+                        conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, :nv, 'ativo')"),
+                                     {"n": m_nome, "e": m_email, "s": m_senha, "nv": m_nivel})
+                    
+                    enviou = enviar_email_boas_vindas(m_nome, m_email, m_senha)
+                    if enviou:
+                        st.success(f"Usuário {m_nome} criado e e-mail enviado!")
+                    else:
+                        st.warning("Usuário criado, mas houve erro no envio do e-mail.")
+                    st.rerun()
 
-        server = smtplib.SMTP_SSL(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"])
-        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
-        server.sendmail(msg['From'], msg['To'], msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao enviar e-mail: {e}")
-        return False
-        
-# --- FUNÇÃO DE ENVIO DE EMAIL ---
-def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
-    msg_corpo = f"""
-    <html>
-        <body>
-            <h2>Olá, {nome}! 👋</h2>
-            <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
-            <p><b>Seus dados de acesso:</b></p>
-            <ul>
-                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
-                <li><b>Usuário:</b> {email_destino}</li>
-                <li><b>Senha:</b> {senha_provisoria}</li>
-            </ul>
-            <p><i>Recomendamos alterar sua senha após o primeiro login.</i></p>
-        </body>
-    </html>
-    """
-    
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = st.secrets["email"]["usuario"]
-        msg['To'] = email_destino
-        msg['Subject'] = "🚀 Bem-vindo ao SGF PRO - Seus dados de acesso"
-        msg.attach(MIMEText(msg_corpo, 'html'))
+    st.divider()
 
-        server = smtplib.SMTP_SSL(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"])
-        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
-        server.sendmail(msg['From'], msg['To'], msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao enviar e-mail: {e}")
-        return False
-        
     # 2. Listagem e Edição
     df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
     for i, row in df_users.iterrows():
@@ -182,24 +165,24 @@ def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
                 else:
                     st.error("Você não pode se excluir!")
 
-        # FORMULÁRIO DE EDIÇÃO (Alinhado fora das colunas, mas dentro do 'for')
-        if st.session_state.get(f"editando_{row['id']}", False):
-            with st.form(f"f_edit_{row['id']}"):
-                e_nome = st.text_input("Nome", value=row['nome'])
-                e_email = st.text_input("Email", value=row['email'])
-                e_senha = st.text_input("Senha", value=row['senha'])
-                e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
-                
-                col_s1, col_s2 = st.columns(2)
-                if col_s1.form_submit_button("Salvar Alterações"):
-                    with engine.begin() as conn:
-                        conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
-                                     {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
-                    st.session_state[f"editando_{row['id']}"] = False
-                    st.rerun()
-                if col_s2.form_submit_button("Cancelar"):
-                    st.session_state[f"editando_{row['id']}"] = False
-                    st.rerun()
+            # FORMULÁRIO DE EDIÇÃO
+            if st.session_state.get(f"editando_{row['id']}", False):
+                with st.form(f"f_edit_{row['id']}"):
+                    e_nome = st.text_input("Nome", value=row['nome'])
+                    e_email = st.text_input("Email", value=row['email'])
+                    e_senha = st.text_input("Senha", value=row['senha'])
+                    e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
+                    
+                    col_s1, col_s2 = st.columns(2)
+                    if col_s1.form_submit_button("Salvar Alterações"):
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
+                                         {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
+                    if col_s2.form_submit_button("Cancelar"):
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
         st.divider()
 
 # --- ABA HISTÓRICO ---
@@ -212,12 +195,4 @@ elif menu == "📜 Histórico":
         csv = df_h.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
-# --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
-
-
-
-
-
-
-
-
+# --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
