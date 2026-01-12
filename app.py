@@ -112,7 +112,8 @@ if menu == "🛡️ Gestão de Usuários":
                 with engine.begin() as conn:
                     conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
                 st.rerun()
-
+                
+            txt_status = "🗑️ Excluir" if row['status'] == 'excluido' else "🗑️ Excluir"
             if c5.button("🗑️", key=f"del_{row['id']}"):
                 if row['id'] != st.session_state.user_id:
                     with engine.begin() as conn:
@@ -150,3 +151,4 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
