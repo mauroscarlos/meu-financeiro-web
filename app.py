@@ -123,34 +123,24 @@ if menu == "🛡️ Gestão de Usuários":
                 else:
                     st.error("Você não pode se excluir!")
 
-# --- ABA HISTÓRICO ---
-elif menu == "📜 Histórico":
-    st.header("Histórico Financeiro")
-    query_h = text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC")
-    df_h = pd.read_sql(query_h, engine, params={"id": st.session_state.user_id})
-    if not df_h.empty:
-        st.dataframe(df_h, use_container_width=True)
-        csv = df_h.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Exportar CSV", csv, "relatorio.csv", "text/csv")
-            
-            # FORMULÁRIO DE EDIÇÃO (Aparece se clicar em Editar)
-            if st.session_state.get(f"editando_{row['id']}", False):
-                with st.form(f"f_edit_{row['id']}"):
-                    e_nome = st.text_input("Nome", value=row['nome'])
-                    e_email = st.text_input("Email", value=row['email'])
-                    e_senha = st.text_input("Senha", value=row['senha'])
-                    e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
-                    
-                    col_s1, col_s2 = st.columns(2)
-                    if col_s1.form_submit_button("Salvar Alterações"):
-                        with engine.begin() as conn:
-                            conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
-                                         {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
-                        st.session_state[f"editando_{row['id']}"] = False
-                        st.rerun()
-                    if col_s2.form_submit_button("Cancelar"):
-                        st.session_state[f"editando_{row['id']}"] = False
-                        st.rerun()
+        # FORMULÁRIO DE EDIÇÃO (Alinhado fora das colunas, mas dentro do 'for')
+        if st.session_state.get(f"editando_{row['id']}", False):
+            with st.form(f"f_edit_{row['id']}"):
+                e_nome = st.text_input("Nome", value=row['nome'])
+                e_email = st.text_input("Email", value=row['email'])
+                e_senha = st.text_input("Senha", value=row['senha'])
+                e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
+                
+                col_s1, col_s2 = st.columns(2)
+                if col_s1.form_submit_button("Salvar Alterações"):
+                    with engine.begin() as conn:
+                        conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
+                                     {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
+                    st.session_state[f"editando_{row['id']}"] = False
+                    st.rerun()
+                if col_s2.form_submit_button("Cancelar"):
+                    st.session_state[f"editando_{row['id']}"] = False
+                    st.rerun()
         st.divider()
 
 # --- ABA HISTÓRICO ---
@@ -164,6 +154,7 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
 
 
