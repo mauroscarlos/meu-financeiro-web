@@ -49,7 +49,7 @@ def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
 
-# --- LÓGICA DE AUTO-CADASTRO (VIA LINK: ?modo=registro) ---
+# --- LÓGICA DE AUTO-CADASTRO ---
 params = st.query_params
 if "modo" in params and params["modo"] == "registro":
     st.markdown("<h2 style='text-align: center;'>📝 Criar Nova Conta</h2>", unsafe_allow_html=True)
@@ -86,7 +86,6 @@ if not st.session_state.logado:
                 if st.form_submit_button("Entrar"):
                     query = text("SELECT * FROM usuarios WHERE email = :e AND senha = :s")
                     user_df = pd.read_sql(query, engine, params={"e": email, "s": senha})
-                    
                     if not user_df.empty:
                         if user_df.iloc[0]['status'] == 'bloqueado':
                             st.error("❌ Sua conta está bloqueada.")
@@ -116,71 +115,57 @@ menu = st.sidebar.radio("Navegação", opcoes_menu)
 # --- ABA GESTÃO DE USUÁRIOS (EXCLUSIVA ADMIN) ---
 if menu == "🛡️ Gestão de Usuários":
     st.header("👥 Gerenciamento de Membros")
-    
-    # 1. Adicionar Manualmente com E-mail
     with st.expander("➕ Adicionar Novo Usuário"):
-        # O segredo está no parâmetro clear_on_submit=True abaixo
         with st.form("add_manual", clear_on_submit=True):
             m_nome = st.text_input("Nome")
             m_email = st.text_input("Email")
             m_senha = st.text_input("Senha")
             m_nivel = st.selectbox("Nível", ["user", "admin"])
-            
             if st.form_submit_button("Cadastrar e Notificar"):
                 if m_nome and m_email and m_senha:
                     with engine.begin() as conn:
                         conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, :nv, 'ativo')"),
                                      {"n": m_nome, "e": m_email, "s": m_senha, "nv": m_nivel})
-                    
                     enviou = enviar_email_boas_vindas(m_nome, m_email, m_senha)
                     if enviou:
                         st.success(f"Usuário {m_nome} criado e e-mail enviado!")
                     else:
                         st.warning("Usuário criado, mas houve erro no envio do e-mail.")
-                    
-                    # Removi o st.rerun() daqui para você conseguir ver a mensagem de sucesso 
-                    # e o formulário já aparecerá limpo devido ao clear_on_submit.
+                    st.rerun()
                 else:
-                    st.error("Por favor, preencha todos os campos.")
+                    st.error("Preencha todos os campos.")
 
     st.divider()
-
-    # 2. Listagem e Edição
     df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
     for i, row in df_users.iterrows():
         with st.container():
             c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 1])
             c1.write(f"**{row['nome']}**\n{row['email']}")
             c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
-            
-            if c3.button("📝", key=f"ed_{row['id']}", help="Editar"):
+            if c3.button("📝", key=f"ed_{row['id']}"):
                 st.session_state[f"editando_{row['id']}"] = True
             
             txt_status = "🔓" if row['status'] == 'bloqueado' else "🔒"
-            if c4.button(txt_status, key=f"st_{row['id']}", help="Bloquear"):
+            if c4.button(txt_status, key=f"st_{row['id']}"):
                 novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
                 with engine.begin() as conn:
                     conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
                 st.rerun()
 
-            if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir"):
+            if c5.button("🗑️", key=f"del_{row['id']}"):
                 if row['id'] != st.session_state.user_id:
                     with engine.begin() as conn:
                         conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
                     st.rerun()
-                else:
-                    st.error("Você não pode se excluir!")
 
-            # FORMULÁRIO DE EDIÇÃO
             if st.session_state.get(f"editando_{row['id']}", False):
                 with st.form(f"f_edit_{row['id']}"):
                     e_nome = st.text_input("Nome", value=row['nome'])
                     e_email = st.text_input("Email", value=row['email'])
                     e_senha = st.text_input("Senha", value=row['senha'])
                     e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
-                    
                     col_s1, col_s2 = st.columns(2)
-                    if col_s1.form_submit_button("Salvar Alterações"):
+                    if col_s1.form_submit_button("Salvar"):
                         with engine.begin() as conn:
                             conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
                                          {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
@@ -195,74 +180,60 @@ if menu == "🛡️ Gestão de Usuários":
 elif menu == "👤 Cadastros":
     st.header("⚙️ Gestão de Categorias")
     
-    # 1. FORMULÁRIO DE INCLUSÃO
     with st.expander("➕ Adicionar Nova Categoria"):
         with st.form("form_categorias", clear_on_submit=True):
             col1, col2 = st.columns(2)
             tipo_cat = col1.selectbox("Tipo", ["Receita", "Despesa"])
             desc_cat = col2.text_input("Descrição (Ex: Telefone, Aluguel)")
-            
             if st.form_submit_button("Salvar Categoria"):
                 if desc_cat:
                     with engine.begin() as conn:
                         conn.execute(text("INSERT INTO categorias (tipo, descricao, usuario_id) VALUES (:t, :d, :u)"),
                                      {"t": tipo_cat, "d": desc_cat, "u": st.session_state.user_id})
-                    st.success(f"Categoria '{desc_cat}' incluída!")
+                    st.success("Categoria incluída!")
                     st.rerun()
                 else:
                     st.error("Informe a descrição.")
 
     st.divider()
-
-    # 2. LISTAGEM COM EDIÇÃO E EXCLUSÃO
     st.subheader("Categorias Ativas")
-    query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
-    try:
-    query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
-    df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
-except Exception as e:
-    st.error("⚠️ A tabela de categorias ainda não foi criada no banco de dados.")
-    st.info("Por favor, execute o comando SQL no Supabase para criar a tabela 'categorias'.")
     
-# --- LISTAGEM COM SEGURANÇA ---
-try:
-    query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
-    df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
-except Exception as e:
-    st.error("⚠️ A tabela de categorias ainda não foi criada no banco de dados.")
-    st.info("Por favor, execute o comando SQL no Supabase para criar a tabela 'categorias'.")
-    df_cat = pd.DataFrame() # Cria um dataframe vazio para o resto do código não quebrar
-                
-                # Identificação visual rápida
+    try:
+        query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
+        df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
+    except Exception as e:
+        st.error("⚠️ A tabela de categorias não foi encontrada.")
+        st.info("Execute o comando SQL no Supabase para criar a tabela 'categorias'.")
+        df_cat = pd.DataFrame()
+
+    if not df_cat.empty:
+        for i, row in df_cat.iterrows():
+            with st.container():
+                c1, c2, c3, c4 = st.columns([2, 3, 1, 1])
                 cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
                 c1.write(f"{cor} **{row['tipo']}**")
                 c2.write(f"{row['descricao']}")
                 
-                # Botão Editar
                 if c3.button("📝", key=f"ed_cat_{row['id']}"):
                     st.session_state[f"edit_cat_{row['id']}"] = True
                 
-                # Botão Excluir
                 if c4.button("🗑️", key=f"del_cat_{row['id']}"):
                     with engine.begin() as conn:
                         conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
                     st.rerun()
 
-                # BLOCO DE EDIÇÃO (Aparece ao clicar no lápis)
                 if st.session_state.get(f"edit_cat_{row['id']}", False):
                     with st.form(f"f_edit_cat_{row['id']}"):
-                        st.write(f"Editando: {row['descricao']}")
-                        novo_tipo = st.selectbox("Tipo", ["Receita", "Despesa"], index=0 if row['tipo']=='Receita' else 1)
-                        nova_desc = st.text_input("Nova Descrição", value=row['descricao'])
-                        
-                        col_btns = st.columns(2)
-                        if col_btns[0].form_submit_button("Confirmar Alteração"):
+                        n_tipo = st.selectbox("Tipo", ["Receita", "Despesa"], index=0 if row['tipo']=='Receita' else 1)
+                        n_desc = st.text_input("Descrição", value=row['descricao'])
+                        b1, b2 = st.columns(2)
+                        if b1.form_submit_button("Confirmar"):
                             with engine.begin() as conn:
                                 conn.execute(text("UPDATE categorias SET tipo=:t, descricao=:d WHERE id=:id"),
-                                             {"t": novo_tipo, "d": nova_desc, "id": row['id']})
+                                             {"t": n_tipo, "d": n_desc, "id": row['id']})
                             st.session_state[f"edit_cat_{row['id']}"] = False
                             st.rerun()
-                        if col_btns[1].form_submit_button("Cancelar"):
+                        if b2.form_submit_button("Cancelar"):
                             st.session_state[f"edit_cat_{row['id']}"] = False
                             st.rerun()
             st.divider()
@@ -270,16 +241,14 @@ except Exception as e:
 # --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
     st.header("Histórico Financeiro")
-    query_h = text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC")
-    df_h = pd.read_sql(query_h, engine, params={"id": st.session_state.user_id})
-    if not df_h.empty:
-        st.dataframe(df_h, use_container_width=True)
-        csv = df_h.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
-
-# --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
-
-
-
-
-
+    try:
+        query_h = text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC")
+        df_h = pd.read_sql(query_h, engine, params={"id": st.session_state.user_id})
+        if not df_h.empty:
+            st.dataframe(df_h, use_container_width=True)
+            csv = df_h.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Exportar CSV", csv, "relatorio.csv", "text/csv")
+        else:
+            st.info("Nenhum dado encontrado.")
+    except:
+        st.warning("Tabela de movimentações não encontrada.")
