@@ -217,7 +217,13 @@ elif menu == "👤 Cadastros":
     # 2. LISTAGEM COM EDIÇÃO E EXCLUSÃO
     st.subheader("Categorias Ativas")
     query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
+    try:
+    query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
     df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
+except Exception as e:
+    st.error("⚠️ A tabela de categorias ainda não foi criada no banco de dados.")
+    st.info("Por favor, execute o comando SQL no Supabase para criar a tabela 'categorias'.")
+    df_cat = pd.DataFrame() # Cria um dataframe vazio para o resto do código não quebrar
 
     if df_cat.empty:
         st.info("Nenhuma categoria cadastrada.")
@@ -272,6 +278,7 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
+
 
 
 
