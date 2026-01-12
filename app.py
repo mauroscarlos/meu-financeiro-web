@@ -25,7 +25,7 @@ def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
             <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
             <p><b>Seus dados de acesso:</b></p>
             <ul>
-                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
+                <li><b>Link:</b> <a href="https://meu-financeiro-web-htaqqyp7igebzsdy6vymja.streamlit.app/">Acessar Sistema</a></li>
                 <li><b>Usuário:</b> {email_destino}</li>
                 <li><b>Senha:</b> {senha_provisoria}</li>
             </ul>
@@ -196,3 +196,4 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
+
