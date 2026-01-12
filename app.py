@@ -96,24 +96,31 @@ if menu == "🛡️ Gestão de Usuários":
                 st.rerun()
 
     # 2. Listagem e Edição
-    df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
-    for i, row in df_users.iterrows():
-        with st.container():
-            c1, c2, c3, c4, c5 = st.columns([2, 2, 1, 1, 1])
-            c1.write(f"**{row['nome']}**\n{row['email']}")
-            c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
-            
-            if c3.button("📝 Editar", key=f"ed_{row['id']}"):
-                st.session_state[f"editando_{row['id']}"] = True
-            
-            txt_status = "🔓 Ativar" if row['status'] == 'bloqueado' else "🔒 Bloquear"
-            if c4.button(txt_status, key=f"st_{row['id']}"):
-                novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
-                with engine.begin() as conn:
-                    conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
-                st.rerun()
+    st.subheader("Usuários Cadastrados")
+df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
 
-            if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir Usuário"):
+for i, row in df_users.iterrows():
+    with st.container():
+        # Ajustei as proporções [3, 2, 1, 1, 1] para dar mais folga aos botões
+        c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 1])
+        
+        c1.write(f"**{row['nome']}**\n{row['email']}")
+        c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
+        
+        # Botão Editar
+        if c3.button("📝", key=f"ed_{row['id']}", help="Editar Usuário"):
+            st.session_state[f"editando_{row['id']}"] = True
+        
+        # Botão Bloquear
+        txt_status = "🔓" if row['status'] == 'bloqueado' else "🔒"
+        if c4.button(txt_status, key=f"st_{row['id']}", help="Bloquear/Desbloquear"):
+            novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
+            with engine.begin() as conn:
+                conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
+            st.rerun()
+
+        # Botão Excluir com rótulo explícito e cor de aviso
+        if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir Usuário"):
             if row['id'] != st.session_state.user_id:
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
@@ -152,5 +159,6 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
 
