@@ -119,11 +119,13 @@ if menu == "🛡️ Gestão de Usuários":
     
     # 1. Adicionar Manualmente com E-mail
     with st.expander("➕ Adicionar Novo Usuário"):
-        with st.form("add_manual"):
+        # O segredo está no parâmetro clear_on_submit=True abaixo
+        with st.form("add_manual", clear_on_submit=True):
             m_nome = st.text_input("Nome")
             m_email = st.text_input("Email")
             m_senha = st.text_input("Senha")
             m_nivel = st.selectbox("Nível", ["user", "admin"])
+            
             if st.form_submit_button("Cadastrar e Notificar"):
                 if m_nome and m_email and m_senha:
                     with engine.begin() as conn:
@@ -135,7 +137,11 @@ if menu == "🛡️ Gestão de Usuários":
                         st.success(f"Usuário {m_nome} criado e e-mail enviado!")
                     else:
                         st.warning("Usuário criado, mas houve erro no envio do e-mail.")
-                    st.rerun()
+                    
+                    # Removi o st.rerun() daqui para você conseguir ver a mensagem de sucesso 
+                    # e o formulário já aparecerá limpo devido ao clear_on_submit.
+                else:
+                    st.error("Por favor, preencha todos os campos.")
 
     st.divider()
 
@@ -196,4 +202,5 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
+
 
