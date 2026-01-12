@@ -37,10 +37,11 @@ if "modo" in params and params["modo"] == "registro":
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
+# O placeholder deve ser criado ANTES do bloco if not logado
 placeholder = st.empty()
 
 if not st.session_state.logado:
-    with placeholder.container():
+    with placeholder.container(): # Tudo o que está aqui será apagado depois
         st.markdown("<h2 style='text-align: center;'>🛡️ Acesso ao SGF PRO</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
@@ -55,11 +56,16 @@ if not st.session_state.logado:
                         if user_df.iloc[0]['status'] == 'bloqueado':
                             st.error("❌ Sua conta está bloqueada.")
                         else:
+                            # 1. Salva os dados na sessão
                             st.session_state.logado = True
                             st.session_state.user_id = int(user_df.iloc[0]['id'])
                             st.session_state.user_nome = user_df.iloc[0]['nome']
                             st.session_state.user_nivel = user_df.iloc[0]['nivel']
+                            
+                            # 2. LIMPA O CONTEÚDO DO PLACEHOLDER (Apaga o formulário da tela)
                             placeholder.empty()
+                            
+                            # 3. Reinicia o app já com a sessão logada
                             st.rerun()
                     else:
                         st.error("Usuário ou senha incorretos.")
@@ -154,6 +160,7 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
 
 
