@@ -95,38 +95,63 @@ if menu == "🛡️ Gestão de Usuários":
                 st.success("Usuário Adicionado!")
                 st.rerun()
 
+    st.divider()
+
     # 2. Listagem e Edição
-    st.subheader("Usuários Cadastrados")
-df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
-
-for i, row in df_users.iterrows():
-    with st.container():
-        # Ajustei as proporções [3, 2, 1, 1, 1] para dar mais folga aos botões
-        c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 1])
-        
-        c1.write(f"**{row['nome']}**\n{row['email']}")
-        c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
-        
-        # Botão Editar
-        if c3.button("📝", key=f"ed_{row['id']}", help="Editar Usuário"):
-            st.session_state[f"editando_{row['id']}"] = True
-        
-        # Botão Bloquear
-        txt_status = "🔓" if row['status'] == 'bloqueado' else "🔒"
-        if c4.button(txt_status, key=f"st_{row['id']}", help="Bloquear/Desbloquear"):
-            novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
-            with engine.begin() as conn:
-                conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
-            st.rerun()
-
-        # Botão Excluir com rótulo explícito e cor de aviso
-        if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir Usuário"):
-            if row['id'] != st.session_state.user_id:
+    df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
+    for i, row in df_users.iterrows():
+        with st.container():
+            c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 1])
+            c1.write(f"**{row['nome']}**\n{row['email']}")
+            c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
+            
+            if c3.button("📝", key=f"ed_{row['id']}", help="Editar"):
+                st.session_state[f"editando_{row['id']}"] = True
+            
+            txt_status = "🔓" if row['status'] == 'bloqueado' else "🔒"
+            if c4.button(txt_status, key=f"st_{row['id']}", help="Bloquear"):
+                novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
                 with engine.begin() as conn:
-                    conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
+                    conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
                 st.rerun()
-            else:
-                st.error("Você não pode se excluir!")
+
+            if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir"):
+                if row['id'] != st.session_state.user_id:
+                    with engine.begin() as conn:
+                        conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
+                    st.rerun()
+                else:
+                    st.error("Você não pode se excluir!")
+
+            # FORMULÁRIO DE EDIÇÃO
+            if st.session_state.get(f"editando_{row['id']}", False):
+                with st.form(f"f_edit_{row['id']}"):
+                    e_nome = st.text_input("Nome", value=row['nome'])
+                    e_email = st.text_input("Email", value=row['email'])
+                    e_senha = st.text_input("Senha", value=row['senha'])
+                    e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
+                    
+                    col_s1, col_s2 = st.columns(2)
+                    if col_s1.form_submit_button("Salvar Alterações"):
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
+                                         {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
+                    if col_s2.form_submit_button("Cancelar"):
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
+        st.divider()
+
+# --- ABA HISTÓRICO ---
+elif menu == "📜 Histórico":
+    st.header("Histórico Financeiro")
+    query_h = text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC")
+    df_h = pd.read_sql(query_h, engine, params={"id": st.session_state.user_id})
+    if not df_h.empty:
+        st.dataframe(df_h, use_container_width=True)
+        csv = df_h.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Exportar CSV", csv, "relatorio.csv", "text/csv")
             
             # FORMULÁRIO DE EDIÇÃO (Aparece se clicar em Editar)
             if st.session_state.get(f"editando_{row['id']}", False):
@@ -159,6 +184,7 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
 
 
