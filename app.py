@@ -112,14 +112,15 @@ if menu == "🛡️ Gestão de Usuários":
                 with engine.begin() as conn:
                     conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
                 st.rerun()
-                
-            txt_status = "🗑️ Excluir" if row['status'] == 'excluido' else "🗑️ Excluir"
-            if c5.button("🗑️", key=f"del_{row['id']}"):
-                if row['id'] != st.session_state.user_id:
-                    with engine.begin() as conn:
-                        conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
-                    st.rerun()
 
+            if c5.button("🗑️", key=f"del_{row['id']}", help="Excluir Usuário"):
+            if row['id'] != st.session_state.user_id:
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
+                st.rerun()
+            else:
+                st.error("Você não pode se excluir!")
+            
             # FORMULÁRIO DE EDIÇÃO (Aparece se clicar em Editar)
             if st.session_state.get(f"editando_{row['id']}", False):
                 with st.form(f"f_edit_{row['id']}"):
@@ -151,4 +152,5 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
