@@ -3,8 +3,8 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime
 
-# --- CONFIGURAÇÕES ---
-st.set_page_config(page_title="SGF PRO - Admin", layout="wide", page_icon="🛡️")
+# --- CONFIGURAÇÕES DA PÁGINA ---
+st.set_page_config(page_title="SGF PRO - Gestão Profissional", layout="wide", page_icon="🛡️")
 
 @st.cache_resource
 def get_engine():
@@ -13,26 +13,24 @@ def get_engine():
 
 engine = get_engine()
 
-# --- LÓGICA DE AUTO-CADASTRO (VIA LINK EXTERNO) ---
-# O link será: https://seu-app.streamlit.app/?modo=registro
+# --- LÓGICA DE AUTO-CADASTRO (VIA LINK: ?modo=registro) ---
 params = st.query_params
 if "modo" in params and params["modo"] == "registro":
     st.markdown("<h2 style='text-align: center;'>📝 Criar Nova Conta</h2>", unsafe_allow_html=True)
-    with st.container():
-        col1, col2, col3 = st.columns([1,2,1])
-        with col2:
-            with st.form("auto_registro"):
-                n_nome = st.text_input("Nome Completo")
-                n_email = st.text_input("Seu melhor E-mail")
-                n_senha = st.text_input("Defina uma Senha", type="password")
-                if st.form_submit_button("Finalizar Cadastro"):
-                    with engine.begin() as conn:
-                        conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, 'user', 'ativo')"),
-                                     {"n": n_nome, "e": n_email, "s": n_senha})
-                    st.success("Conta criada! Agora você pode voltar ao login.")
-            if st.button("⬅️ Voltar para Login"):
-                st.query_params.clear()
-                st.rerun()
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        with st.form("auto_registro"):
+            n_nome = st.text_input("Nome Completo")
+            n_email = st.text_input("E-mail")
+            n_senha = st.text_input("Defina uma Senha", type="password")
+            if st.form_submit_button("Finalizar Cadastro"):
+                with engine.begin() as conn:
+                    conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, 'user', 'ativo')"),
+                                 {"n": n_nome, "e": n_email, "s": n_senha})
+                st.success("Conta criada com sucesso!")
+        if st.button("⬅️ Voltar para Login"):
+            st.query_params.clear()
+            st.rerun()
     st.stop()
 
 # --- SISTEMA DE LOGIN ---
@@ -55,7 +53,7 @@ if not st.session_state.logado:
                     
                     if not user_df.empty:
                         if user_df.iloc[0]['status'] == 'bloqueado':
-                            st.error("❌ Sua conta está bloqueada. Entre em contato com o administrador.")
+                            st.error("❌ Sua conta está bloqueada.")
                         else:
                             st.session_state.logado = True
                             st.session_state.user_id = int(user_df.iloc[0]['id'])
@@ -73,7 +71,6 @@ if st.sidebar.button("Sair"):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
-# Definindo as abas baseadas no nível de acesso
 opcoes_menu = ["📊 Dashboard", "👤 Cadastros", "💰 Receitas", "💸 Despesas", "📜 Histórico"]
 if st.session_state.user_nivel == 'admin':
     opcoes_menu.append("🛡️ Gestão de Usuários")
@@ -82,40 +79,74 @@ menu = st.sidebar.radio("Navegação", opcoes_menu)
 
 # --- ABA GESTÃO DE USUÁRIOS (EXCLUSIVA ADMIN) ---
 if menu == "🛡️ Gestão de Usuários":
-    st.header("Gerenciamento de Membros")
-    df_users = pd.read_sql("SELECT id, nome, email, nivel, status FROM usuarios ORDER BY id ASC", engine)
+    st.header("👥 Gerenciamento de Membros")
     
+    # 1. Adicionar Manualmente
+    with st.expander("➕ Adicionar Novo Usuário"):
+        with st.form("add_manual"):
+            m_nome = st.text_input("Nome")
+            m_email = st.text_input("Email")
+            m_senha = st.text_input("Senha")
+            m_nivel = st.selectbox("Nível", ["user", "admin"])
+            if st.form_submit_button("Cadastrar"):
+                with engine.begin() as conn:
+                    conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, :nv, 'ativo')"),
+                                 {"n": m_nome, "e": m_email, "s": m_senha, "nv": m_nivel})
+                st.success("Usuário Adicionado!")
+                st.rerun()
+
+    # 2. Listagem e Edição
+    df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
     for i, row in df_users.iterrows():
         with st.container():
-            c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
+            c1, c2, c3, c4, c5 = st.columns([2, 2, 1, 1, 1])
             c1.write(f"**{row['nome']}**\n{row['email']}")
             c2.write(f"Nível: `{row['nivel']}` | Status: `{row['status']}`")
             
-            # Botão Bloquear/Desbloquear
-            txt_btn = "🔓 Desbloquear" if row['status'] == 'bloqueado' else "🔒 Bloquear"
-            novo_status = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
-            if c3.button(txt_btn, key=f"block_{row['id']}"):
-                with engine.begin() as conn:
-                    conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo_status, "id": row['id']})
-                st.rerun()
+            if c3.button("📝 Editar", key=f"ed_{row['id']}"):
+                st.session_state[f"editando_{row['id']}"] = True
             
-            # Botão Excluir
-            if c4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+            txt_status = "🔓 Ativar" if row['status'] == 'bloqueado' else "🔒 Bloquear"
+            if c4.button(txt_status, key=f"st_{row['id']}"):
+                novo = 'ativo' if row['status'] == 'bloqueado' else 'bloqueado'
                 with engine.begin() as conn:
-                    conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
+                    conn.execute(text("UPDATE usuarios SET status = :s WHERE id = :id"), {"s": novo, "id": row['id']})
                 st.rerun()
+
+            if c5.button("🗑️", key=f"del_{row['id']}"):
+                if row['id'] != st.session_state.user_id:
+                    with engine.begin() as conn:
+                        conn.execute(text("DELETE FROM usuarios WHERE id = :id"), {"id": row['id']})
+                    st.rerun()
+
+            # FORMULÁRIO DE EDIÇÃO (Aparece se clicar em Editar)
+            if st.session_state.get(f"editando_{row['id']}", False):
+                with st.form(f"f_edit_{row['id']}"):
+                    e_nome = st.text_input("Nome", value=row['nome'])
+                    e_email = st.text_input("Email", value=row['email'])
+                    e_senha = st.text_input("Senha", value=row['senha'])
+                    e_nivel = st.selectbox("Nível", ["user", "admin"], index=0 if row['nivel']=='user' else 1)
+                    
+                    col_s1, col_s2 = st.columns(2)
+                    if col_s1.form_submit_button("Salvar Alterações"):
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE usuarios SET nome=:n, email=:e, senha=:s, nivel=:nv WHERE id=:id"),
+                                         {"n": e_nome, "e": e_email, "s": e_senha, "nv": e_nivel, "id": row['id']})
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
+                    if col_s2.form_submit_button("Cancelar"):
+                        st.session_state[f"editando_{row['id']}"] = False
+                        st.rerun()
         st.divider()
 
-# --- ABA HISTÓRICO (COM BOTÃO DE EXCEL) ---
+# --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
-    st.header("Histórico de Movimentações")
-    df_h = pd.read_sql(text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC"), 
-                       engine, params={"id": st.session_state.user_id})
+    st.header("Histórico Financeiro")
+    query_h = text("SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = :id ORDER BY data DESC")
+    df_h = pd.read_sql(query_h, engine, params={"id": st.session_state.user_id})
     if not df_h.empty:
         st.dataframe(df_h, use_container_width=True)
         csv = df_h.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Planilha (Excel/CSV)", csv, "meu_financeiro.csv", "text/csv")
-    else:
-        st.info("Nada por aqui ainda.")
+        st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
-# ... (Mantenha as abas de Dashboard, Cadastros, Receitas e Despesas do código anterior) ...
+# --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
