@@ -84,25 +84,78 @@ if st.session_state.user_nivel == 'admin':
 menu = st.sidebar.radio("Navegação", opcoes_menu)
 
 # --- ABA GESTÃO DE USUÁRIOS (EXCLUSIVA ADMIN) ---
-if menu == "🛡️ Gestão de Usuários":
-    st.header("👥 Gerenciamento de Membros")
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# --- FUNÇÃO DE ENVIO DE EMAIL ---
+def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
+    msg_corpo = f"""
+    <html>
+        <body>
+            <h2>Olá, {nome}! 👋</h2>
+            <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
+            <p><b>Seus dados de acesso:</b></p>
+            <ul>
+                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
+                <li><b>Usuário:</b> {email_destino}</li>
+                <li><b>Senha:</b> {senha_provisoria}</li>
+            </ul>
+            <p><i>Recomendamos alterar sua senha após o primeiro login.</i></p>
+        </body>
+    </html>
+    """
     
-    # 1. Adicionar Manualmente
-    with st.expander("➕ Adicionar Novo Usuário"):
-        with st.form("add_manual"):
-            m_nome = st.text_input("Nome")
-            m_email = st.text_input("Email")
-            m_senha = st.text_input("Senha")
-            m_nivel = st.selectbox("Nível", ["user", "admin"])
-            if st.form_submit_button("Cadastrar"):
-                with engine.begin() as conn:
-                    conn.execute(text("INSERT INTO usuarios (nome, email, senha, nivel, status) VALUES (:n, :e, :s, :nv, 'ativo')"),
-                                 {"n": m_nome, "e": m_email, "s": m_senha, "nv": m_nivel})
-                st.success("Usuário Adicionado!")
-                st.rerun()
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = st.secrets["email"]["usuario"]
+        msg['To'] = email_destino
+        msg['Subject'] = "🚀 Bem-vindo ao SGF PRO - Seus dados de acesso"
+        msg.attach(MIMEText(msg_corpo, 'html'))
 
-    st.divider()
+        server = smtplib.SMTP_SSL(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"])
+        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
+        server.sendmail(msg['From'], msg['To'], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+        
+# --- FUNÇÃO DE ENVIO DE EMAIL ---
+def enviar_email_boas_vindas(nome, email_destino, senha_provisoria):
+    msg_corpo = f"""
+    <html>
+        <body>
+            <h2>Olá, {nome}! 👋</h2>
+            <p>Sua conta no <b>SGF PRO</b> foi criada com sucesso pelo administrador.</p>
+            <p><b>Seus dados de acesso:</b></p>
+            <ul>
+                <li><b>Link:</b> <a href="https://seu-app.streamlit.app">Acessar Sistema</a></li>
+                <li><b>Usuário:</b> {email_destino}</li>
+                <li><b>Senha:</b> {senha_provisoria}</li>
+            </ul>
+            <p><i>Recomendamos alterar sua senha após o primeiro login.</i></p>
+        </body>
+    </html>
+    """
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = st.secrets["email"]["usuario"]
+        msg['To'] = email_destino
+        msg['Subject'] = "🚀 Bem-vindo ao SGF PRO - Seus dados de acesso"
+        msg.attach(MIMEText(msg_corpo, 'html'))
 
+        server = smtplib.SMTP_SSL(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"])
+        server.login(st.secrets["email"]["usuario"], st.secrets["email"]["senha"])
+        server.sendmail(msg['From'], msg['To'], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+        
     # 2. Listagem e Edição
     df_users = pd.read_sql("SELECT * FROM usuarios ORDER BY id ASC", engine)
     for i, row in df_users.iterrows():
@@ -160,6 +213,7 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- (Outras abas como Dashboard, Receitas, Despesas seguem a mesma lógica de filtro por user_id) ---
+
 
 
 
