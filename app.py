@@ -3,6 +3,30 @@ import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime
 
+# --- SISTEMA DE LOGIN COM LIMPEZA DE TELA ---
+placeholder = st.empty() # Cria um espaço vazio que ocupa a tela toda
+
+if not st.session_state.logado:
+    with placeholder.container(): # Coloca a tela de login dentro desse espaço
+        st.markdown("<h2 style='text-align: center;'>🛡️ Acesso ao SGF PRO</h2>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            with st.form("login"):
+                email = st.text_input("Email")
+                senha = st.text_input("Senha", type="password")
+                if st.form_submit_button("Entrar no Sistema"):
+                    query = f"SELECT * FROM usuarios WHERE email = '{email}' AND senha = '{senha}'"
+                    user_df = pd.read_sql(query, engine)
+                    if not user_df.empty:
+                        st.session_state.logado = True
+                        st.session_state.user_id = int(user_df.iloc[0]['id'])
+                        st.session_state.user_nome = user_df.iloc[0]['nome']
+                        placeholder.empty() # LIMPA A TELA IMEDIATAMENTE APÓS O LOGIN
+                        st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
+    st.stop() # Para a execução aqui se não estiver logado
+
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(page_title="SGF PRO - Gestão", layout="wide", page_icon="🛡️")
 
@@ -108,3 +132,4 @@ elif menu == "📜 Histórico":
     st.header("Todas as Movimentações")
     df_h = pd.read_sql(f"SELECT data, tipo, origem_destino, valor FROM movimentacoes WHERE usuario_id = {st.session_state.user_id} ORDER BY data DESC", engine)
     st.table(df_h)
+
