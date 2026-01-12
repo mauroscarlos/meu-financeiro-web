@@ -191,6 +191,76 @@ if menu == "🛡️ Gestão de Usuários":
                         st.rerun()
         st.divider()
 
+# --- ABA CADASTROS (CATEGORIAS) ---
+elif menu == "👤 Cadastros":
+    st.header("⚙️ Gestão de Categorias")
+    
+    # 1. FORMULÁRIO DE INCLUSÃO
+    with st.expander("➕ Adicionar Nova Categoria"):
+        with st.form("form_categorias", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            tipo_cat = col1.selectbox("Tipo", ["Receita", "Despesa"])
+            desc_cat = col2.text_input("Descrição (Ex: Telefone, Aluguel)")
+            
+            if st.form_submit_button("Salvar Categoria"):
+                if desc_cat:
+                    with engine.begin() as conn:
+                        conn.execute(text("INSERT INTO categorias (tipo, descricao, usuario_id) VALUES (:t, :d, :u)"),
+                                     {"t": tipo_cat, "d": desc_cat, "u": st.session_state.user_id})
+                    st.success(f"Categoria '{desc_cat}' incluída!")
+                    st.rerun()
+                else:
+                    st.error("Informe a descrição.")
+
+    st.divider()
+
+    # 2. LISTAGEM COM EDIÇÃO E EXCLUSÃO
+    st.subheader("Categorias Ativas")
+    query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
+    df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
+
+    if df_cat.empty:
+        st.info("Nenhuma categoria cadastrada.")
+    else:
+        for i, row in df_cat.iterrows():
+            with st.container():
+                # Colunas para exibição e botões
+                c1, c2, c3, c4 = st.columns([2, 3, 1, 1])
+                
+                # Identificação visual rápida
+                cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
+                c1.write(f"{cor} **{row['tipo']}**")
+                c2.write(f"{row['descricao']}")
+                
+                # Botão Editar
+                if c3.button("📝", key=f"ed_cat_{row['id']}"):
+                    st.session_state[f"edit_cat_{row['id']}"] = True
+                
+                # Botão Excluir
+                if c4.button("🗑️", key=f"del_cat_{row['id']}"):
+                    with engine.begin() as conn:
+                        conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
+                    st.rerun()
+
+                # BLOCO DE EDIÇÃO (Aparece ao clicar no lápis)
+                if st.session_state.get(f"edit_cat_{row['id']}", False):
+                    with st.form(f"f_edit_cat_{row['id']}"):
+                        st.write(f"Editando: {row['descricao']}")
+                        novo_tipo = st.selectbox("Tipo", ["Receita", "Despesa"], index=0 if row['tipo']=='Receita' else 1)
+                        nova_desc = st.text_input("Nova Descrição", value=row['descricao'])
+                        
+                        col_btns = st.columns(2)
+                        if col_btns[0].form_submit_button("Confirmar Alteração"):
+                            with engine.begin() as conn:
+                                conn.execute(text("UPDATE categorias SET tipo=:t, descricao=:d WHERE id=:id"),
+                                             {"t": novo_tipo, "d": nova_desc, "id": row['id']})
+                            st.session_state[f"edit_cat_{row['id']}"] = False
+                            st.rerun()
+                        if col_btns[1].form_submit_button("Cancelar"):
+                            st.session_state[f"edit_cat_{row['id']}"] = False
+                            st.rerun()
+            st.divider()
+
 # --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
     st.header("Histórico Financeiro")
@@ -202,5 +272,6 @@ elif menu == "📜 Histórico":
         st.download_button("📥 Exportar CSV/Excel", csv, "relatorio.csv", "text/csv")
 
 # --- AS OUTRAS ABAS (Dashboard, Receitas, etc) FICARIAM AQUI ABAIXO ---
+
 
 
