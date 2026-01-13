@@ -184,11 +184,11 @@ elif menu == "👤 Cadastros":
     st.markdown("""
         <style>
             [data-testid="stVerticalBlock"] > div {
-                padding-top: 0.05rem;
-                padding-bottom: 0.05rem;
+                padding-top: 0.02rem;
+                padding-bottom: 0.02rem;
             }
             .stButton button {
-                height: 1.8rem;
+                height: 1.0rem;
                 padding-top: 0px;
                 padding-bottom: 0px;
             }
@@ -263,5 +263,6 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
