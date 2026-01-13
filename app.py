@@ -225,10 +225,10 @@ elif menu == "👤 Cadastros":
             c1.write(f"{cor} {row['tipo']}")
             c2.write(f"**{row['descricao']}**")
             
-            if c3.button("📝", key=f"ed_cat_{row['id']}"):
+            if c3.button("Editar", key=f"ed_cat_{row['id']}"):
                 st.session_state[f"edit_cat_{row['id']}"] = True
             
-            if c4.button("🗑️", key=f"del_cat_{row['id']}"):
+            if c4.button("Excluir", key=f"del_cat_{row['id']}"):
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
                 st.rerun()
@@ -263,6 +263,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
