@@ -186,14 +186,33 @@ if menu == "🛡️ Gestão de Usuários":
         st.divider()
 
 # --- ABA CADASTROS (CORREÇÃO DE SINTAXE E INDENTAÇÃO) ---
-elif menu == "👤 Cadastros":
-    st.header("⚙️ Central de Cadastros")
-    
-    modo_cadastro = st.radio(
-        "O que deseja gerenciar?", 
-        ["Categorias", "Fornecedores", "Origens de Receita"],
-        horizontal=True
-    )
+elif modo_cadastro == "Fornecedores":
+        # Inicializa o valor no estado da sessão se não existir
+        if 'cnpj_input' not in st.session_state:
+            st.session_state.cnpj_input = ""
+
+        with st.expander("➕ Novo Fornecedor", expanded=True):
+            with st.form("form_forn", clear_on_submit=True):
+                # O usuário digita aqui
+                cnpj_raw = st.text_input("CNPJ *", help="Digite apenas números")
+                razao = st.text_input("Razão Social *")
+                
+                f1, f2 = st.columns(2)
+                email_f = f1.text_input("E-mail *")
+                tel_f = f2.text_input("Telefone *")
+                
+                if st.form_submit_button("Cadastrar"):
+                    doc_limpo = "".join(filter(str.isdigit, cnpj_raw))
+                    if all([doc_limpo, razao, email_f, tel_f]) and len(doc_limpo) == 14:
+                        with engine.begin() as conn:
+                            conn.execute(text("""
+                                INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) 
+                                VALUES (:c, :r, :e, :t, :u)
+                            """), {"c": doc_limpo, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
+                        st.success(f"Fornecedor {formatar_doc(doc_limpo)} cadastrado!")
+                        st.rerun()
+                    else:
+                        st.error("CNPJ deve ter 14 números e todos os campos são obrigatórios.")
     st.divider()
 
     # --- 1. CATEGORIAS ---
@@ -362,6 +381,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
