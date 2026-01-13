@@ -217,23 +217,29 @@ elif menu == "👤 Cadastros":
     elif modo_cadastro == "Fornecedores":
         with st.expander("➕ Novo Fornecedor", expanded=True):
             with st.form("form_forn", clear_on_submit=True):
-                cnpj = st.text_input("CNPJ (Apenas números) *")
+                cnpj = st.text_input("CNPJ *", placeholder="00.000.000/0000-00")
                 razao = st.text_input("Razão Social *")
                 f1, f2 = st.columns(2)
                 email_f = f1.text_input("E-mail *")
-                tel_f = f2.text_input("Telefone *")
+                tel_f = f2.text_input("Telefone *", placeholder="(00) 00000-0000")
+                
                 if st.form_submit_button("Cadastrar"):
-                    # VERIFICA TODOS OS CAMPOS
                     if all([cnpj, razao, email_f, tel_f]):
-                        with engine.begin() as conn:
-                            conn.execute(text("""
-                                INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) 
-                                VALUES (:c, :r, :e, :t, :u)
-                            """), {"c": cnpj, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
-                        st.success("Fornecedor cadastrado!")
-                        st.rerun()
+                        # Limpa caracteres especiais para salvar apenas números no banco
+                        cnpj_limpo = "".join(filter(str.isdigit, cnpj))
+                        
+                        if len(cnpj_limpo) != 14:
+                            st.error("CNPJ inválido! Deve conter 14 números.")
+                        else:
+                            with engine.begin() as conn:
+                                conn.execute(text("""
+                                    INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) 
+                                    VALUES (:c, :r, :e, :t, :u)
+                                """), {"c": cnpj_limpo, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
+                            st.success("Fornecedor cadastrado com sucesso!")
+                            st.rerun()
                     else:
-                        st.error("Todos os campos marcados com * são obrigatórios.")
+                        st.error("Preencha todos os campos obrigatórios.")
 
     # --- LÓGICA 3: ORIGENS DE RECEITA ---
     elif modo_cadastro == "Origens de Receita":
@@ -242,22 +248,29 @@ elif menu == "👤 Cadastros":
                 nome_o = st.text_input("Nome da Origem *")
                 o1, o2 = st.columns(2)
                 t_doc = o1.selectbox("Documento", ["CPF", "CNPJ"])
-                n_doc = o2.text_input(f"Número do {t_doc} *")
+                n_doc = o2.text_input(f"Digite o {t_doc} *", placeholder="Apenas números ou formatado")
+                
                 o3, o4 = st.columns(2)
                 email_o = o3.text_input("E-mail *")
                 tel_o = o4.text_input("Telefone *")
+                
                 if st.form_submit_button("Salvar"):
-                    # VERIFICA TODOS OS CAMPOS
-                    if all([nome_o, n_doc, email_o, tel_o]):
-                        with engine.begin() as conn:
-                            conn.execute(text("""
-                                INSERT INTO origens (nome, tipo_documento, documento, email, telefone, usuario_id) 
-                                VALUES (:n, :td, :d, :e, :t, :u)
-                            """), {"n": nome_o, "td": t_doc, "d": n_doc, "e": email_o, "t": tel_o, "u": st.session_state.user_id})
-                        st.success("Origem de receita salva!")
-                        st.rerun()
+                    doc_limpo = "".join(filter(str.isdigit, n_doc))
+                    
+                    if all([nome_o, doc_limpo, email_o, tel_o]):
+                        # Validação básica de tamanho
+                        if (t_doc == "CPF" and len(doc_limpo) != 11) or (t_doc == "CNPJ" and len(doc_limpo) != 14):
+                            st.error(f"O {t_doc} informado parece incorreto (tamanho inválido).")
+                        else:
+                            with engine.begin() as conn:
+                                conn.execute(text("""
+                                    INSERT INTO origens (nome, tipo_documento, documento, email, telefone, usuario_id) 
+                                    VALUES (:n, :td, :d, :e, :t, :u)
+                                """), {"n": nome_o, "td": t_doc, "d": doc_limpo, "e": email_o, "t": tel_o, "u": st.session_state.user_id})
+                            st.success("Origem salva!")
+                            st.rerun()
                     else:
-                        st.error("Por favor, preencha todos os campos da Origem.")
+                        st.error("Por favor, preencha todos os campos.")
 
     st.divider()
     # (A parte das listagens abaixo continua igual ao código anterior...)
@@ -343,6 +356,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
