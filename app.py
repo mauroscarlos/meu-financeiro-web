@@ -185,37 +185,18 @@ if menu == "🛡️ Gestão de Usuários":
                         st.rerun()
         st.divider()
 
-# --- ABA CADASTROS (CORREÇÃO DE SINTAXE E INDENTAÇÃO) ---
-elif modo_cadastro == "Fornecedores":
-        # Inicializa o valor no estado da sessão se não existir
-        if 'cnpj_input' not in st.session_state:
-            st.session_state.cnpj_input = ""
+# --- ABA CADASTROS (CORREÇÃO DEFINITIVA DE INDENTAÇÃO) ---
+elif menu == "👤 Cadastros":
+    st.header("⚙️ Central de Cadastros")
+    
+    modo_cadastro = st.radio(
+        "O que deseja gerenciar?", 
+        ["Categorias", "Fornecedores", "Origens de Receita"],
+        horizontal=True
+    )
+    
+    st.divider() # Esta é a linha 216 que estava dando erro
 
-        with st.expander("➕ Novo Fornecedor", expanded=True):
-            with st.form("form_forn", clear_on_submit=True):
-                # O usuário digita aqui
-                cnpj_raw = st.text_input("CNPJ *", help="Digite apenas números")
-                razao = st.text_input("Razão Social *")
-                
-                f1, f2 = st.columns(2)
-                email_f = f1.text_input("E-mail *")
-                tel_f = f2.text_input("Telefone *")
-                
-                if st.form_submit_button("Cadastrar"):
-                    doc_limpo = "".join(filter(str.isdigit, cnpj_raw))
-                    if all([doc_limpo, razao, email_f, tel_f]) and len(doc_limpo) == 14:
-                        with engine.begin() as conn:
-                            conn.execute(text("""
-                                INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) 
-                                VALUES (:c, :r, :e, :t, :u)
-                            """), {"c": doc_limpo, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
-                        st.success(f"Fornecedor {formatar_doc(doc_limpo)} cadastrado!")
-                        st.rerun()
-                    else:
-                        st.error("CNPJ deve ter 14 números e todos os campos são obrigatórios.")
-    st.divider()
-
-    # --- 1. CATEGORIAS ---
     if modo_cadastro == "Categorias":
         with st.expander("➕ Nova Categoria", expanded=True):
             with st.form("form_cat", clear_on_submit=True):
@@ -228,16 +209,14 @@ elif modo_cadastro == "Fornecedores":
                             conn.execute(text("INSERT INTO categorias (tipo, descricao, usuario_id) VALUES (:t, :d, :u)"),
                                          {"t": t_cat, "d": d_cat, "u": st.session_state.user_id})
                         st.rerun()
-                    else: 
+                    else:
                         st.error("Campo obrigatório!")
-
         try:
             df_cat = pd.read_sql(text("SELECT * FROM categorias WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
             st.dataframe(df_cat, use_container_width=True)
-        except: 
+        except:
             st.info("Tabela de categorias não encontrada.")
 
-    # --- 2. FORNECEDORES ---
     elif modo_cadastro == "Fornecedores":
         with st.expander("➕ Novo Fornecedor", expanded=True):
             with st.form("form_forn", clear_on_submit=True):
@@ -246,27 +225,23 @@ elif modo_cadastro == "Fornecedores":
                 f1, f2 = st.columns(2)
                 email_f = f1.text_input("E-mail *")
                 tel_f = f2.text_input("Telefone *")
-                
-                if st.form_submit_button("Cadastrar Fornecedor"):
+                if st.form_submit_button("Cadastrar"):
                     doc_limpo = "".join(filter(str.isdigit, cnpj))
                     if all([doc_limpo, razao, email_f, tel_f]) and len(doc_limpo) == 14:
                         with engine.begin() as conn:
                             conn.execute(text("INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) VALUES (:c, :r, :e, :t, :u)"),
                                          {"c": doc_limpo, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
-                        st.success("Fornecedor cadastrado!")
                         st.rerun()
-                    else: 
-                        st.error("Verifique os campos obrigatórios (CNPJ deve ter 14 números).")
-
+                    else:
+                        st.error("Preencha todos os campos (CNPJ deve ter 14 números).")
         try:
             df_forn = pd.read_sql(text("SELECT * FROM fornecedores WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
             if not df_forn.empty:
                 df_forn['cnpj'] = df_forn['cnpj'].apply(formatar_doc)
                 st.dataframe(df_forn, use_container_width=True)
-        except: 
+        except:
             st.info("Tabela fornecedores não encontrada.")
 
-    # --- 3. ORIGENS DE RECEITA ---
     elif modo_cadastro == "Origens de Receita":
         with st.expander("➕ Nova Origem", expanded=True):
             with st.form("form_orig", clear_on_submit=True):
@@ -277,28 +252,22 @@ elif modo_cadastro == "Fornecedores":
                 o3, o4 = st.columns(2)
                 email_o = o3.text_input("E-mail *")
                 tel_o = o4.text_input("Telefone *")
-                
-                if st.form_submit_button("Salvar Origem"):
+                if st.form_submit_button("Salvar"):
                     doc_limpo = "".join(filter(str.isdigit, n_doc))
                     if all([nome_o, doc_limpo, email_o, tel_o]):
                         with engine.begin() as conn:
                             conn.execute(text("INSERT INTO origens (nome, tipo_documento, documento, email, telefone, usuario_id) VALUES (:n, :td, :d, :e, :t, :u)"),
                                          {"n": nome_o, "td": t_doc, "d": doc_limpo, "e": email_o, "t": tel_o, "u": st.session_state.user_id})
-                        st.success("Origem salva!")
                         st.rerun()
-                    else: 
+                    else:
                         st.error("Preencha todos os campos!")
-
         try:
             df_orig = pd.read_sql(text("SELECT * FROM origens WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
             if not df_orig.empty:
                 df_orig['documento'] = df_orig['documento'].apply(formatar_doc)
                 st.dataframe(df_orig, use_container_width=True)
-        except: 
+        except:
             st.info("Tabela origens não encontrada.")
-
-    st.divider()
-    # (A parte das listagens abaixo continua igual ao código anterior...)
 
 # --- ABA LANÇAMENTOS (UNIFICADA) ---
 elif menu == "📝 Lançamentos":
@@ -381,6 +350,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
