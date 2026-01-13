@@ -229,7 +229,7 @@ elif menu == "👤 Cadastros":
     elif modo_cadastro == "Fornecedores":
         with st.expander("➕ Novo Fornecedor", expanded=True):
             with st.form("form_forn", clear_on_submit=True):
-                cnpj = st.text_input("CNPJ (Chave Primária)")
+                cnpj = st.text_input("CNPJ")
                 razao = st.text_input("Razão Social")
                 f1, f2 = st.columns(2)
                 email_f = f1.text_input("E-mail")
@@ -350,6 +350,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
