@@ -177,9 +177,25 @@ if menu == "🛡️ Gestão de Usuários":
         st.divider()
 
 # --- ABA CADASTROS (CATEGORIAS) ---
+# --- ABA CADASTROS (VERSÃO COMPACTA) ---
 elif menu == "👤 Cadastros":
     st.header("⚙️ Gestão de Categorias")
     
+    # CSS para diminuir o espaço entre as linhas e botões
+    st.markdown("""
+        <style>
+            [data-testid="stVerticalBlock"] > div {
+                padding-top: 0.1rem;
+                padding-bottom: 0.1rem;
+            }
+            .stButton button {
+                height: 1.8rem;
+                padding-top: 0px;
+                padding-bottom: 0px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     with st.expander("➕ Adicionar Nova Categoria"):
         with st.form("form_categorias", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -192,52 +208,48 @@ elif menu == "👤 Cadastros":
                                      {"t": tipo_cat, "d": desc_cat, "u": st.session_state.user_id})
                     st.success("Categoria incluída!")
                     st.rerun()
-                else:
-                    st.error("Informe a descrição.")
 
     st.divider()
-    st.subheader("Categorias Ativas")
+    st.subheader("📋 Suas Categorias")
     
     try:
         query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
         df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
-    except Exception as e:
-        st.error("⚠️ A tabela de categorias não foi encontrada.")
-        st.info("Execute o comando SQL no Supabase para criar a tabela 'categorias'.")
+    except:
         df_cat = pd.DataFrame()
 
     if not df_cat.empty:
+        # Tabela compacta usando colunas com pouco espaço entre elas
         for i, row in df_cat.iterrows():
-            with st.container():
-                c1, c2, c3, c4 = st.columns([2, 3, 1, 1])
-                cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
-                c1.write(f"{cor} **{row['tipo']}**")
-                c2.write(f"{row['descricao']}")
-                
-                if c3.button("📝", key=f"ed_cat_{row['id']}"):
-                    st.session_state[f"edit_cat_{row['id']}"] = True
-                
-                if c4.button("🗑️", key=f"del_cat_{row['id']}"):
-                    with engine.begin() as conn:
-                        conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
-                    st.rerun()
+            c1, c2, c3, c4 = st.columns([1, 4, 0.5, 0.5]) # Ajuste fino das larguras
+            cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
+            c1.write(f"{cor} {row['tipo']}")
+            c2.write(f"**{row['descricao']}**")
+            
+            if c3.button("📝", key=f"ed_cat_{row['id']}"):
+                st.session_state[f"edit_cat_{row['id']}"] = True
+            
+            if c4.button("🗑️", key=f"del_cat_{row['id']}"):
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
+                st.rerun()
 
-                if st.session_state.get(f"edit_cat_{row['id']}", False):
-                    with st.form(f"f_edit_cat_{row['id']}"):
-                        n_tipo = st.selectbox("Tipo", ["Receita", "Despesa"], index=0 if row['tipo']=='Receita' else 1)
-                        n_desc = st.text_input("Descrição", value=row['descricao'])
-                        b1, b2 = st.columns(2)
-                        if b1.form_submit_button("Confirmar"):
-                            with engine.begin() as conn:
-                                conn.execute(text("UPDATE categorias SET tipo=:t, descricao=:d WHERE id=:id"),
-                                             {"t": n_tipo, "d": n_desc, "id": row['id']})
-                            st.session_state[f"edit_cat_{row['id']}"] = False
-                            st.rerun()
-                        if b2.form_submit_button("Cancelar"):
-                            st.session_state[f"edit_cat_{row['id']}"] = False
-                            st.rerun()
-            st.divider()
-
+            # Área de edição (só aparece se clicar no lápis)
+            if st.session_state.get(f"edit_cat_{row['id']}", False):
+                with st.form(f"f_edit_cat_{row['id']}"):
+                    n_desc = st.text_input("Nova Descrição", value=row['descricao'])
+                    b1, b2 = st.columns(2)
+                    if b1.form_submit_button("Ok"):
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE categorias SET descricao=:d WHERE id=:id"),
+                                         {"d": n_desc, "id": row['id']})
+                        st.session_state[f"edit_cat_{row['id']}"] = False
+                        st.rerun()
+                    if b2.form_submit_button("X"):
+                        st.session_state[f"edit_cat_{row['id']}"] = False
+                        st.rerun()
+    else:
+        st.info("Nenhuma categoria cadastrada.")
 # --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
     st.header("Histórico Financeiro")
@@ -252,3 +264,4 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
