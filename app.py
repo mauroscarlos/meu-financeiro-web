@@ -275,17 +275,20 @@ elif menu == "👤 Cadastros":
 
 # --- ABA LANÇAMENTOS (UNIFICADA) ---
 elif menu == "📝 Lançamentos":
-    st.header("📋 Novo Lançamento Financeiro")
+    st.header("📋 Lançamento Financeiro")
     
-    # 1. Seletor de Tipo para filtrar categorias
-    tipo_mov = st.radio("O que deseja lançar?", ["Receita", "Despesa"], horizontal=True)
+    # Seletor de Tipo
+    tipo_mov = st.radio("Tipo de Movimentação", ["Receita", "Despesa"], horizontal=True)
     
-    # 2. Busca categorias dinamicamente baseada na escolha acima
-    query_cat = text("SELECT id, descricao FROM categorias WHERE usuario_id = :u AND tipo = :t ORDER BY descricao ASC")
-    df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id, "t": tipo_mov})
-    
+    # Busca categorias do tipo selecionado
+    try:
+        query_cat = text("SELECT id, descricao FROM categorias WHERE usuario_id = :u AND tipo = :t ORDER BY descricao ASC")
+        df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id, "t": tipo_mov})
+    except:
+        df_cat = pd.DataFrame()
+
     if df_cat.empty:
-        st.warning(f"⚠️ Nenhuma categoria de **{tipo_mov}** encontrada. Cadastre-as na aba '👤 Cadastros'.")
+        st.warning(f"⚠️ Nenhuma categoria de {tipo_mov} encontrada. Cadastre-as em '👤 Cadastros'.")
     else:
         with st.form("form_lancamento", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -293,34 +296,33 @@ elif menu == "📝 Lançamentos":
             cat_mov = col2.selectbox("Categoria", df_cat['descricao'].tolist())
             
             col3, col4 = st.columns(2)
-            # Dica visual: Se for despesa, o campo fica com um aviso
-            label_valor = "Valor Recebido (R$)" if tipo_mov == "Receita" else "Valor Pago (R$)"
-            valor_mov = col3.number_input(label_valor, min_value=0.0, step=0.01)
-            origem_mov = col4.text_input("Origem / Destino (Ex: Cliente X, Posto Shell)")
+            valor_mov = col3.number_input("Valor (R$)", min_value=0.0, step=0.01)
+            origem_mov = col4.text_input("Origem/Destino (Ex: Cliente, Fornecedor)")
             
-            if st.form_submit_button("Confirmar Lançamento"):
+            if st.form_submit_button("Lançar"):
                 if valor_mov > 0:
                     with engine.begin() as conn:
-                        conn.execute(text("""
-                            INSERT INTO movimentacoes (tipo, categoria_id, valor, data, origem_destino, usuario_id) 
-                            VALUES (:t, (SELECT id FROM categorias WHERE descricao = :cat AND usuario_id = :u LIMIT 1), :v, :d, :o, :u)
-                        """), {
-                            "t": tipo_mov, 
-                            "cat": cat_mov, 
-                            "v": valor_mov, 
-                            "d": data_mov, 
-                            "o": origem_mov, 
-                            "u": st.session_state.user_id
-                        })
-                    st.success(f"{tipo_mov} de R$ {valor_mov:.2f} registrada!")
-                    st.rerun()
+                        # Buscamos o ID da categoria baseado na descrição escolhida
+                        cat_id_query = text("SELECT id FROM categorias WHERE descricao = :d AND usuario_id = :u LIMIT 1")
+                        res = conn.execute(cat_id_query, {"d": cat_mov, "u": st.session_state.user_id}).fetchone()
+                        
+                        if res:
+                            conn.execute(text("""
+                                INSERT INTO movimentacoes (tipo, categoria_id, valor, data, origem_destino, usuario_id) 
+                                VALUES (:t, :cid, :v, :d, :o, :u)
+                            """), {
+                                "t": tipo_mov, "cid": res[0], "v": valor_mov, 
+                                "d": data_mov, "o": origem_mov, "u": st.session_state.user_id
+                            })
+                            st.success("Lançamento realizado!")
+                            st.rerun()
                 else:
                     st.error("O valor deve ser maior que zero.")
 
     st.divider()
-    st.subheader("⏱️ Últimas Movimentações")
+    st.subheader("⏱️ Últimos Lançamentos")
     
-    # Proteção para o caso da tabela não existir ou estar vazia
+    # BLOCO COM PROTEÇÃO CONTRA O ERRO DE SQL
     try:
         query_resumo = text("""
             SELECT m.data, m.tipo, c.descricao as categoria, m.origem_destino, m.valor 
@@ -332,36 +334,11 @@ elif menu == "📝 Lançamentos":
         df_resumo = pd.read_sql(query_resumo, engine, params={"u": st.session_state.user_id})
         
         if not df_resumo.empty:
-            # Estilização das cores
-            def colorir_tipo(val):
-                color = '#28a745' if val == 'Receita' else '#dc3545'
-                return f'color: {color}; font-weight: bold'
-            
-            st.dataframe(df_resumo.style.map(colorir_tipo, subset=['tipo']), use_container_width=True)
+            st.dataframe(df_resumo, use_container_width=True)
         else:
-            st.info("Nenhum lançamento realizado ainda.")
-            
+            st.info("Nenhuma movimentação encontrada.")
     except Exception as e:
-        st.warning("Aguardando configuração final da tabela de movimentações...")
-    
-    # 3. Resumo visual rápido dos últimos lançamentos
-    st.subheader("⏱️ Últimas Movimentações")
-    query_resumo = text("""
-        SELECT m.data, m.tipo, c.descricao as categoria, m.origem_destino, m.valor 
-        FROM movimentacoes m
-        JOIN categorias c ON m.categoria_id = c.id
-        WHERE m.usuario_id = :u
-        ORDER BY m.data DESC LIMIT 5
-    """)
-    df_resumo = pd.read_sql(query_resumo, engine, params={"u": st.session_state.user_id})
-    
-    if not df_resumo.empty:
-        # Aplicando cores simples na tabela para distinguir
-        def colorir_tipo(val):
-            color = 'green' if val == 'Receita' else 'red'
-            return f'color: {color}; font-weight: bold'
-        
-        st.dataframe(df_resumo.style.applymap(colorir_tipo, subset=['tipo']), use_container_width=True)
+        st.info("As movimentações aparecerão aqui assim que a tabela for configurada no Supabase.")
         
 # --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
@@ -377,6 +354,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
