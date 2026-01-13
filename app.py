@@ -6,6 +6,15 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+def formatar_doc(doc):
+    if not doc: return ""
+    doc = "".join(filter(str.isdigit, str(doc)))
+    if len(doc) == 11:
+        return f"{doc[:3]}.{doc[3:6]}.{doc[6:9]}-{doc[9:]}"
+    if len(doc) == 14:
+        return f"{doc[:2]}.{doc[2:5]}.{doc[5:8]}/{doc[8:12]}-{doc[12:]}"
+    return doc
+
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(page_title="SGF PRO - Gestão Profissional", layout="wide", page_icon="🛡️")
 
@@ -178,21 +187,35 @@ if menu == "🛡️ Gestão de Usuários":
 
 # --- ABA CADASTROS DINÂMICA (CAMPOS OBRIGATÓRIOS) ---
 elif menu == "👤 Cadastros":
-    st.header("⚙️ Central de Cadastros")
-    
-    st.markdown("""
-        <style>
-            .centralizar-titulo { text-align: center; font-size: 1.1rem; font-weight: bold; color: #444; margin-top: 10px; }
-            [data-testid="stVerticalBlock"] > div { padding-top: 0.05rem !important; padding-bottom: 0.05rem !important; }
-            .stButton button { padding: 0px !important; height: 1.8rem !important; font-size: 0.8rem !important; }
-        </style>
-    """, unsafe_allow_html=True)
+    # ... (mantenha o código anterior de categorias e seletores)
 
-    modo_cadastro = st.radio(
-        "Selecione o que deseja gerenciar:", 
-        ["Categorias", "Fornecedores", "Origens de Receita"],
-        horizontal=True
-    )
+    elif modo_cadastro == "Fornecedores":
+        # ... (seu form de cadastro aqui)
+
+        st.markdown('<p class="centralizar-titulo">🚚 FORNECEDORES CADASTRADOS</p>', unsafe_allow_html=True)
+        try:
+            df_forn = pd.read_sql(text("SELECT * FROM fornecedores WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
+            if not df_forn.empty:
+                # FORMATANDO O CNPJ ANTES DE MOSTRAR
+                df_forn['cnpj'] = df_forn['cnpj'].apply(formatar_doc)
+                st.dataframe(df_forn, use_container_width=True)
+            else:
+                st.info("Nenhum fornecedor cadastrado.")
+        except: st.info("Tabela fornecedores não encontrada.")
+
+    elif modo_cadastro == "Origens de Receita":
+        # ... (seu form de cadastro aqui)
+
+        st.markdown('<p class="centralizar-titulo">💎 ORIGENS DE RECEITA CADASTRADAS</p>', unsafe_allow_html=True)
+        try:
+            df_orig = pd.read_sql(text("SELECT * FROM origens WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
+            if not df_orig.empty:
+                # FORMATANDO O DOCUMENTO ANTES DE MOSTRAR
+                df_orig['documento'] = df_orig['documento'].apply(formatar_doc)
+                st.dataframe(df_orig, use_container_width=True)
+            else:
+                st.info("Nenhuma origem cadastrada.")
+        except: st.info("Tabela origens não encontrada.")
 
     st.divider()
 
@@ -356,6 +379,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
