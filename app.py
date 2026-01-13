@@ -371,3 +371,4 @@ elif menu == "📜 Histórico":
 
 
 
+
