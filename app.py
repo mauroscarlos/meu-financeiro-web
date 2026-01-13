@@ -318,6 +318,31 @@ elif menu == "📝 Lançamentos":
                     st.error("O valor deve ser maior que zero.")
 
     st.divider()
+    st.subheader("⏱️ Últimas Movimentações")
+    
+    # Proteção para o caso da tabela não existir ou estar vazia
+    try:
+        query_resumo = text("""
+            SELECT m.data, m.tipo, c.descricao as categoria, m.origem_destino, m.valor 
+            FROM movimentacoes m
+            LEFT JOIN categorias c ON m.categoria_id = c.id
+            WHERE m.usuario_id = :u
+            ORDER BY m.data DESC LIMIT 5
+        """)
+        df_resumo = pd.read_sql(query_resumo, engine, params={"u": st.session_state.user_id})
+        
+        if not df_resumo.empty:
+            # Estilização das cores
+            def colorir_tipo(val):
+                color = '#28a745' if val == 'Receita' else '#dc3545'
+                return f'color: {color}; font-weight: bold'
+            
+            st.dataframe(df_resumo.style.map(colorir_tipo, subset=['tipo']), use_container_width=True)
+        else:
+            st.info("Nenhum lançamento realizado ainda.")
+            
+    except Exception as e:
+        st.warning("Aguardando configuração final da tabela de movimentações...")
     
     # 3. Resumo visual rápido dos últimos lançamentos
     st.subheader("⏱️ Últimas Movimentações")
@@ -352,6 +377,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
