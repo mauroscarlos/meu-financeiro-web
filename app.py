@@ -176,102 +176,110 @@ if menu == "🛡️ Gestão de Usuários":
                         st.rerun()
         st.divider()
 
-# --- ABA CADASTROS (CATEGORIAS) ---
+Sim, você deve substituir o bloco que criamos anteriormente para a aba de Cadastros. Como agora a tela é dinâmica, o código antigo de "Categorias" passará a ser apenas uma das opções dentro desse novo Hub.
+
+Onde inserir:
+Procure no seu arquivo app.py o trecho que começa com: elif menu == "👤 Cadastros":
+
+Você deve apagar tudo o que estiver dentro desse elif até o próximo elif (geralmente o de 🛡️ Gestão de Usuários ou 📜 Histórico) e colar o código novo no lugar.
+
+Código Completo da Aba de Cadastros (Pronto para Colar)
+Este código já organiza as três sub-abas (Categorias, Fornecedores e Origens) e mantém a lista de visualização compacta que você gostou abaixo dos formulários.
+
+Python
+
+# --- ABA CADASTROS DINÂMICA (SUBSTITUA A ANTIGA POR ESTA) ---
 elif menu == "👤 Cadastros":
-    st.header("⚙️ Gestão de Categorias")
+    st.header("⚙️ Central de Cadastros")
     
-    # CSS para compactar as linhas e formatar o título customizado
+    # CSS para manter o visual compacto e títulos centralizados
     st.markdown("""
         <style>
-            .centralizar-titulo {
-                text-align: center;
-                font-size: 1.1rem;
-                font-weight: bold;
-                color: #444;
-                margin-top: 15px;
-                margin-bottom: 5px;
-            }
-            /* Remove espaços exagerados entre as linhas da tabela */
-            [data-testid="stVerticalBlock"] > div {
-                padding-top: 0.05rem !important;
-                padding-bottom: 0.05rem !important;
-            }
-            /* Estilo para ícones pequenos e centralizados */
-            .stButton button {
-                padding: 0px !important;
-                height: 2rem !important;
-                width: 2rem !important;
-            }
+            .centralizar-titulo { text-align: center; font-size: 1.1rem; font-weight: bold; color: #444; margin-top: 10px; }
+            [data-testid="stVerticalBlock"] > div { padding-top: 0.05rem !important; padding-bottom: 0.05rem !important; }
+            .stButton button { padding: 0px !important; height: 1.8rem !important; font-size: 0.8rem !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    # 1. FORMULÁRIO DE INCLUSÃO
-    with st.expander("➕ Adicionar Nova Categoria"):
-        with st.form("form_categorias", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            tipo_cat = col1.selectbox("Tipo", ["Receita", "Despesa"])
-            desc_cat = col2.text_input("Descrição (Ex: Telefone, Aluguel)")
-            if st.form_submit_button("Salvar Categoria"):
-                if desc_cat:
-                    with engine.begin() as conn:
-                        conn.execute(text("INSERT INTO categorias (tipo, descricao, usuario_id) VALUES (:t, :d, :u)"),
-                                     {"t": tipo_cat, "d": desc_cat, "u": st.session_state.user_id})
-                    st.success("Categoria incluída!")
-                    st.rerun()
+    # Seletor para mudar o formulário
+    modo_cadastro = st.radio(
+        "Selecione o que deseja gerenciar:", 
+        ["Categorias", "Fornecedores", "Origens de Receita"],
+        horizontal=True
+    )
 
     st.divider()
 
-    # TÍTULO CENTRALIZADO COM ÍCONE (FORA DA TABELA)
-    st.markdown('<p class="centralizar-titulo">📋 LISTA DE CATEGORIAS</p>', unsafe_allow_html=True)
-    
-    try:
-        query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
-        df_cat = pd.read_sql(query_cat, engine, params={"u": st.session_state.user_id})
-    except:
-        df_cat = pd.DataFrame()
-
-    if not df_cat.empty:
-        # Cabeçalho da tabela (Labels fixas)
-        h1, h2, h3, h4 = st.columns([1, 4, 0.5, 0.5])
-        h1.caption("TIPO")
-        h2.caption("DESCRIÇÃO")
-        h3.caption("") # Espaço para o botão editar
-        h4.caption("") # Espaço para o botão excluir
-        
-        for i, row in df_cat.iterrows():
-            # Usando colunas bem ajustadas para os ícones ficarem no canto
-            c1, c2, c3, c4 = st.columns([1, 4, 0.5, 0.5]) 
-            
-            cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
-            c1.write(f"{cor} {row['tipo']}")
-            c2.write(f"{row['descricao']}")
-            
-            # Botões com ícones novamente (📝 e 🗑️)
-            if c3.button("📝", key=f"ed_cat_{row['id']}"):
-                st.session_state[f"edit_cat_{row['id']}"] = True
-            
-            if c4.button("🗑️", key=f"del_cat_{row['id']}"):
-                with engine.begin() as conn:
-                    conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
-                st.rerun()
-
-            # Área de edição simplificada (aparece abaixo da linha)
-            if st.session_state.get(f"edit_cat_{row['id']}", False):
-                with st.form(f"f_edit_cat_{row['id']}"):
-                    n_desc = st.text_input("Alterar Nome", value=row['descricao'])
-                    col_b = st.columns(2)
-                    if col_b[0].form_submit_button("Confirmar"):
+    # --- LÓGICA 1: CATEGORIAS ---
+    if modo_cadastro == "Categorias":
+        with st.expander("➕ Nova Categoria", expanded=True):
+            with st.form("form_cat", clear_on_submit=True):
+                c1, c2 = st.columns(2)
+                t_cat = c1.selectbox("Tipo", ["Receita", "Despesa"])
+                d_cat = c2.text_input("Descrição")
+                if st.form_submit_button("Salvar"):
+                    if d_cat:
                         with engine.begin() as conn:
-                            conn.execute(text("UPDATE categorias SET descricao=:d WHERE id=:id"),
-                                         {"d": n_desc, "id": row['id']})
-                        st.session_state[f"edit_cat_{row['id']}"] = False
+                            conn.execute(text("INSERT INTO categorias (tipo, descricao, usuario_id) VALUES (:t, :d, :u)"),
+                                         {"t": t_cat, "d": d_cat, "u": st.session_state.user_id})
                         st.rerun()
-                    if col_b[1].form_submit_button("X"):
-                        st.session_state[f"edit_cat_{row['id']}"] = False
-                        st.rerun()
-            st.divider()
-    else:
-        st.info("Nenhuma categoria cadastrada.")
+
+        st.markdown('<p class="centralizar-titulo">📋 CATEGORIAS CADASTRADAS</p>', unsafe_allow_html=True)
+        try:
+            df_lista = pd.read_sql(text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC"), engine, params={"u": st.session_state.user_id})
+            for i, row in df_lista.iterrows():
+                col1, col2, col3 = st.columns([1, 4, 1])
+                col1.write("🟢" if row['tipo'] == "Receita" else "🔴")
+                col2.write(row['descricao'])
+                if col3.button("Excluir", key=f"del_cat_{row['id']}"):
+                    with engine.begin() as conn:
+                        conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
+                    st.rerun()
+        except: st.info("Crie a tabela 'categorias' no Supabase.")
+
+    # --- LÓGICA 2: FORNECEDORES ---
+    elif modo_cadastro == "Fornecedores":
+        with st.expander("➕ Novo Fornecedor", expanded=True):
+            with st.form("form_forn", clear_on_submit=True):
+                cnpj = st.text_input("CNPJ (Chave Primária)")
+                razao = st.text_input("Razão Social")
+                f1, f2 = st.columns(2)
+                email_f = f1.text_input("E-mail")
+                tel_f = f2.text_input("Telefone")
+                if st.form_submit_button("Cadastrar"):
+                    with engine.begin() as conn:
+                        conn.execute(text("INSERT INTO fornecedores (cnpj, razao_social, email, telefone, usuario_id) VALUES (:c, :r, :e, :t, :u)"),
+                                     {"c": cnpj, "r": razao, "e": email_f, "t": tel_f, "u": st.session_state.user_id})
+                    st.rerun()
+
+        st.markdown('<p class="centralizar-titulo">🚚 FORNECEDORES CADASTRADOS</p>', unsafe_allow_html=True)
+        try:
+            df_forn = pd.read_sql(text("SELECT * FROM fornecedores WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
+            st.dataframe(df_forn, use_container_width=True)
+        except: st.info("Crie a tabela 'fornecedores' no Supabase.")
+
+    # --- LÓGICA 3: ORIGENS DE RECEITA ---
+    elif modo_cadastro == "Origens de Receita":
+        with st.expander("➕ Nova Origem", expanded=True):
+            with st.form("form_orig", clear_on_submit=True):
+                nome_o = st.text_input("Nome da Origem")
+                o1, o2 = st.columns(2)
+                t_doc = o1.selectbox("Documento", ["CPF", "CNPJ"])
+                n_doc = o2.text_input("Número")
+                o3, o4 = st.columns(2)
+                email_o = o3.text_input("E-mail")
+                tel_o = o4.text_input("Telefone")
+                if st.form_submit_button("Salvar"):
+                    with engine.begin() as conn:
+                        conn.execute(text("INSERT INTO origens (nome, tipo_documento, documento, email, telefone, usuario_id) VALUES (:n, :td, :d, :e, :t, :u)"),
+                                     {"n": nome_o, "td": t_doc, "d": n_doc, "e": email_o, "t": tel_o, "u": st.session_state.user_id})
+                    st.rerun()
+
+        st.markdown('<p class="centralizar-titulo">💎 ORIGENS DE RECEITA</p>', unsafe_allow_html=True)
+        try:
+            df_orig = pd.read_sql(text("SELECT * FROM origens WHERE usuario_id = :u"), engine, params={"u": st.session_state.user_id})
+            st.dataframe(df_orig, use_container_width=True)
+        except: st.info("Crie a tabela 'origens' no Supabase.")
 
 # --- ABA LANÇAMENTOS (UNIFICADA) ---
 elif menu == "📝 Lançamentos":
@@ -354,6 +362,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
