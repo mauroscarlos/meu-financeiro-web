@@ -176,18 +176,6 @@ if menu == "🛡️ Gestão de Usuários":
                         st.rerun()
         st.divider()
 
-Sim, você deve substituir o bloco que criamos anteriormente para a aba de Cadastros. Como agora a tela é dinâmica, o código antigo de "Categorias" passará a ser apenas uma das opções dentro desse novo Hub.
-
-Onde inserir:
-Procure no seu arquivo app.py o trecho que começa com: elif menu == "👤 Cadastros":
-
-Você deve apagar tudo o que estiver dentro desse elif até o próximo elif (geralmente o de 🛡️ Gestão de Usuários ou 📜 Histórico) e colar o código novo no lugar.
-
-Código Completo da Aba de Cadastros (Pronto para Colar)
-Este código já organiza as três sub-abas (Categorias, Fornecedores e Origens) e mantém a lista de visualização compacta que você gostou abaixo dos formulários.
-
-Python
-
 # --- ABA CADASTROS DINÂMICA (SUBSTITUA A ANTIGA POR ESTA) ---
 elif menu == "👤 Cadastros":
     st.header("⚙️ Central de Cadastros")
@@ -362,6 +350,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
