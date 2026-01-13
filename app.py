@@ -178,28 +178,36 @@ if menu == "🛡️ Gestão de Usuários":
 
 # --- ABA CADASTROS (CATEGORIAS) ---
 elif menu == "👤 Cadastros":
+    # Título da página (mantido padrão)
     st.header("⚙️ Gestão de Categorias")
     
-    # CSS AGRESSIVO para remover espaços e estilizar botões pequenos
+    # CSS para controle total de espaços e fontes
     st.markdown("""
         <style>
-            /* Remove espaço entre blocos verticais */
+            /* Centralizar e diminuir fonte do título da lista */
+            .titulo-lista {
+                text-align: center;
+                font-size: 1.2rem !important;
+                font-weight: bold;
+                margin-bottom: 10px;
+                color: #555;
+            }
+            /* Redução agressiva de espaços entre linhas */
             [data-testid="stVerticalBlock"] > div {
                 padding-top: 0rem !important;
                 padding-bottom: 0rem !important;
-                margin-top: -0.2rem !important;
+                margin-top: -0.3rem !important;
             }
-            /* Estiliza os botões para serem pequenos e com texto visível */
+            /* Botões pequenos e alinhados */
             .stButton button {
-                height: 1.5rem !important;
-                line-height: 1 !important;
-                padding: 0px 5px !important;
-                font-size: 0.8rem !important;
+                height: 1.4rem !important;
+                padding: 0px 8px !important;
+                font-size: 0.75rem !important;
             }
-            /* Remove a linha divisória padrão do Streamlit para economizar espaço */
-            hr {
-                margin-top: 0.2rem !important;
-                margin-bottom: 0.2rem !important;
+            /* Ajuste de texto das colunas */
+            .stMarkdown p {
+                font-size: 0.9rem !important;
+                margin-bottom: 0px !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -217,7 +225,10 @@ elif menu == "👤 Cadastros":
                     st.success("Categoria incluída!")
                     st.rerun()
 
-    st.subheader("📋 Lista de Categorias")
+    st.divider()
+
+    # TÍTULO CENTRALIZADO E MENOR
+    st.markdown('<p class="titulo-lista">LISTA DE CATEGORIAS</p>', unsafe_allow_html=True)
     
     try:
         query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
@@ -226,7 +237,7 @@ elif menu == "👤 Cadastros":
         df_cat = pd.DataFrame()
 
     if not df_cat.empty:
-        # Cabeçalho da "tabela" manual
+        # Cabeçalho da tabela
         h1, h2, h3, h4 = st.columns([1, 3, 1, 1])
         h1.caption("TIPO")
         h2.caption("DESCRIÇÃO")
@@ -235,14 +246,12 @@ elif menu == "👤 Cadastros":
         st.divider()
 
         for i, row in df_cat.iterrows():
-            # Proporções ajustadas para caber o texto nos botões
             c1, c2, c3, c4 = st.columns([1, 3, 1, 1]) 
             
             cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
             c1.write(f"{cor} {row['tipo']}")
             c2.write(f"{row['descricao']}")
             
-            # Botões com TEXTO agora
             if c3.button("Editar", key=f"ed_cat_{row['id']}"):
                 st.session_state[f"edit_cat_{row['id']}"] = True
             
@@ -251,7 +260,6 @@ elif menu == "👤 Cadastros":
                     conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
                 st.rerun()
 
-            # Área de edição simplificada
             if st.session_state.get(f"edit_cat_{row['id']}", False):
                 with st.form(f"f_edit_cat_{row['id']}"):
                     n_desc = st.text_input("Nova Descrição", value=row['descricao'])
@@ -283,6 +291,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
