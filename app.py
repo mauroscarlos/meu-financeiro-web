@@ -177,7 +177,6 @@ if menu == "🛡️ Gestão de Usuários":
         st.divider()
 
 # --- ABA CADASTROS (CATEGORIAS) ---
-# --- ABA CADASTROS (VERSÃO COMPACTA) ---
 elif menu == "👤 Cadastros":
     st.header("⚙️ Gestão de Categorias")
     
@@ -185,8 +184,8 @@ elif menu == "👤 Cadastros":
     st.markdown("""
         <style>
             [data-testid="stVerticalBlock"] > div {
-                padding-top: 0.1rem;
-                padding-bottom: 0.1rem;
+                padding-top: 0.05rem;
+                padding-bottom: 0.05rem;
             }
             .stButton button {
                 height: 1.8rem;
@@ -264,4 +263,5 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
