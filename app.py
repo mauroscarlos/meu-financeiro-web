@@ -180,17 +180,26 @@ if menu == "🛡️ Gestão de Usuários":
 elif menu == "👤 Cadastros":
     st.header("⚙️ Gestão de Categorias")
     
-    # CSS para diminuir o espaço entre as linhas e botões
+    # CSS AGRESSIVO para remover espaços e estilizar botões pequenos
     st.markdown("""
         <style>
+            /* Remove espaço entre blocos verticais */
             [data-testid="stVerticalBlock"] > div {
-                padding-top: 0.02rem;
-                padding-bottom: 0.02rem;
+                padding-top: 0rem !important;
+                padding-bottom: 0rem !important;
+                margin-top: -0.2rem !important;
             }
+            /* Estiliza os botões para serem pequenos e com texto visível */
             .stButton button {
-                height: 1.0rem;
-                padding-top: 0px;
-                padding-bottom: 0px;
+                height: 1.5rem !important;
+                line-height: 1 !important;
+                padding: 0px 5px !important;
+                font-size: 0.8rem !important;
+            }
+            /* Remove a linha divisória padrão do Streamlit para economizar espaço */
+            hr {
+                margin-top: 0.2rem !important;
+                margin-bottom: 0.2rem !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -208,8 +217,7 @@ elif menu == "👤 Cadastros":
                     st.success("Categoria incluída!")
                     st.rerun()
 
-    st.divider()
-    st.subheader("📋 Suas Categorias")
+    st.subheader("📋 Lista de Categorias")
     
     try:
         query_cat = text("SELECT * FROM categorias WHERE usuario_id = :u ORDER BY tipo DESC, descricao ASC")
@@ -218,13 +226,23 @@ elif menu == "👤 Cadastros":
         df_cat = pd.DataFrame()
 
     if not df_cat.empty:
-        # Tabela compacta usando colunas com pouco espaço entre elas
+        # Cabeçalho da "tabela" manual
+        h1, h2, h3, h4 = st.columns([1, 3, 1, 1])
+        h1.caption("TIPO")
+        h2.caption("DESCRIÇÃO")
+        h3.caption("AÇÃO")
+        h4.caption("AÇÃO")
+        st.divider()
+
         for i, row in df_cat.iterrows():
-            c1, c2, c3, c4 = st.columns([1, 4, 0.5, 0.5]) # Ajuste fino das larguras
+            # Proporções ajustadas para caber o texto nos botões
+            c1, c2, c3, c4 = st.columns([1, 3, 1, 1]) 
+            
             cor = "🟢" if row['tipo'] == 'Receita' else "🔴"
             c1.write(f"{cor} {row['tipo']}")
-            c2.write(f"**{row['descricao']}**")
+            c2.write(f"{row['descricao']}")
             
+            # Botões com TEXTO agora
             if c3.button("Editar", key=f"ed_cat_{row['id']}"):
                 st.session_state[f"edit_cat_{row['id']}"] = True
             
@@ -233,12 +251,12 @@ elif menu == "👤 Cadastros":
                     conn.execute(text("DELETE FROM categorias WHERE id = :id"), {"id": row['id']})
                 st.rerun()
 
-            # Área de edição (só aparece se clicar no lápis)
+            # Área de edição simplificada
             if st.session_state.get(f"edit_cat_{row['id']}", False):
                 with st.form(f"f_edit_cat_{row['id']}"):
                     n_desc = st.text_input("Nova Descrição", value=row['descricao'])
                     b1, b2 = st.columns(2)
-                    if b1.form_submit_button("Ok"):
+                    if b1.form_submit_button("Salvar"):
                         with engine.begin() as conn:
                             conn.execute(text("UPDATE categorias SET descricao=:d WHERE id=:id"),
                                          {"d": n_desc, "id": row['id']})
@@ -247,8 +265,10 @@ elif menu == "👤 Cadastros":
                     if b2.form_submit_button("X"):
                         st.session_state[f"edit_cat_{row['id']}"] = False
                         st.rerun()
+            st.divider()
     else:
         st.info("Nenhuma categoria cadastrada.")
+        
 # --- ABA HISTÓRICO ---
 elif menu == "📜 Histórico":
     st.header("Histórico Financeiro")
@@ -263,6 +283,7 @@ elif menu == "📜 Histórico":
             st.info("Nenhum dado encontrado.")
     except:
         st.warning("Tabela de movimentações não encontrada.")
+
 
 
 
