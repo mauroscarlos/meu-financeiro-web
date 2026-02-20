@@ -55,7 +55,7 @@ def listar_transacoes(mes: Optional[str] = None, tipo: Optional[str] = None) -> 
     client = get_client()
     def _q():
         q = (client.table("transacoes")
-             .select("*, categorias(nome, icone, cor)")
+             .select("*")
              .order("data", desc=True))
         if mes:
             y, m = int(mes[:4]), int(mes[5:])
@@ -67,13 +67,21 @@ def listar_transacoes(mes: Optional[str] = None, tipo: Optional[str] = None) -> 
     resp = _retry(_q)
     if not resp.data:
         return pd.DataFrame(columns=["id","data","descricao","valor","tipo",
-                                      "categoria_id","observacao","categorias"])
+                                      "categoria_id","observacao"])
     df = pd.DataFrame(resp.data)
-    # Expande o join de categorias
-    df["categoria_nome"] = df["categorias"].apply(
-        lambda x: x["nome"] if isinstance(x, dict) else "—")
-    df["categoria_icone"] = df["categorias"].apply(
-        lambda x: x["icone"] if isinstance(x, dict) else "")
+
+    # Busca categorias separadamente e faz o merge
+    cats = listar_categorias()
+    if not cats.empty:
+        df = df.merge(cats[["id","nome","icone"]].rename(
+            columns={"id":"categoria_id","nome":"categoria_nome","icone":"categoria_icone"}),
+            on="categoria_id", how="left")
+    else:
+        df["categoria_nome"] = "—"
+        df["categoria_icone"] = ""
+
+    df["categoria_nome"] = df["categoria_nome"].fillna("—")
+    df["categoria_icone"] = df["categoria_icone"].fillna("")
     return df
 
 def buscar_transacao(trans_id: int) -> Optional[dict]:
