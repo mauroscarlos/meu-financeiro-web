@@ -67,21 +67,35 @@ def listar_transacoes(mes: Optional[str] = None, tipo: Optional[str] = None) -> 
     resp = _retry(_q)
     if not resp.data:
         return pd.DataFrame(columns=["id","data","descricao","valor","tipo",
-                                      "categoria_id","observacao"])
+                                      "categoria_id","observacao",
+                                      "categoria_nome","categoria_icone"])
     df = pd.DataFrame(resp.data)
 
-    # Busca categorias separadamente e faz o merge
-    cats = listar_categorias()
-    if not cats.empty:
-        df = df.merge(cats[["id","nome","icone"]].rename(
-            columns={"id":"categoria_id","nome":"categoria_nome","icone":"categoria_icone"}),
-            on="categoria_id", how="left")
-    else:
-        df["categoria_nome"] = "—"
-        df["categoria_icone"] = ""
+    # Garante que categoria_id seja numérico para o merge
+    df["categoria_id"] = pd.to_numeric(df["categoria_id"], errors="coerce")
 
-    df["categoria_nome"] = df["categoria_nome"].fillna("—")
-    df["categoria_icone"] = df["categoria_icone"].fillna("")
+    # Busca categorias e faz merge
+    try:
+        cats = listar_categorias()
+        if not cats.empty:
+            cats["id"] = pd.to_numeric(cats["id"], errors="coerce")
+            merged = df.merge(
+                cats[["id","nome","icone"]].rename(columns={
+                    "id": "categoria_id",
+                    "nome": "categoria_nome",
+                    "icone": "categoria_icone"
+                }),
+                on="categoria_id", how="left"
+            )
+            merged["categoria_nome"] = merged["categoria_nome"].fillna("—")
+            merged["categoria_icone"] = merged["categoria_icone"].fillna("")
+            return merged
+    except Exception:
+        pass
+
+    # Fallback sem categorias
+    df["categoria_nome"] = "—"
+    df["categoria_icone"] = ""
     return df
 
 def buscar_transacao(trans_id: int) -> Optional[dict]:
